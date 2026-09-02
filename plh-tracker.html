@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>PLH Tracker — Production Labour Efficiency</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#12151A; --panel:#1B1F26; --panel2:#20242C; --line:#2A2F38;
+  --text:#E9ECF1; --muted:#8A93A3; --muted2:#5F6774;
+  --blue:#4FA8FF; --blue-dim:#2B4A6B;
+  --green:#38D98A; --green-dim:#1E4A38;
+  --amber:#F2B84B; --amber-dim:#4A3B1E;
+  --red:#FF6B5E; --red-dim:#4A2420;
+  --radius:14px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;-webkit-tap-highlight-color:transparent;}
+body{padding-bottom:78px;min-height:100vh;}
+.num{font-family:'IBM Plex Mono',monospace;font-variant-numeric:tabular-nums;}
+a{color:inherit;}
+button{font-family:inherit;}
+input,select,textarea{font-family:inherit;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:11px 12px;font-size:16px;width:100%;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--blue);}
+label{font-size:12.5px;color:var(--muted);display:block;margin-bottom:5px;font-weight:500;}
+.field{margin-bottom:14px;}
+.btn{border-radius:11px;padding:13px 16px;font-weight:600;font-size:15px;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer;transition:transform .08s ease;}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#0A1420;}
+.btn-primary2{background:transparent;border:1.5px solid var(--blue);color:var(--blue);}
+.btn-danger{background:transparent;border:1.5px solid var(--red);color:var(--red);}
+.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--muted);}
+.btn-block{width:100%;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:20px;font-size:12.5px;font-weight:600;border:1px solid var(--line);background:var(--panel2);color:var(--muted);cursor:pointer;white-space:nowrap;}
+.chip.active{background:var(--blue-dim);border-color:var(--blue);color:var(--blue);}
+.pill-good{background:var(--green-dim);color:var(--green);border-color:transparent;}
+.pill-watch{background:var(--amber-dim);color:var(--amber);border-color:transparent;}
+.pill-bad{background:var(--red-dim);color:var(--red);border-color:transparent;}
+.topbar{position:sticky;top:0;z-index:20;background:rgba(18,21,26,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding:14px 16px 12px;}
+.topbar h1{font-size:18px;margin:0;font-weight:700;letter-spacing:-.01em;}
+.topbar .sub{color:var(--muted);font-size:12.5px;margin-top:2px;}
+main{padding:16px;max-width:640px;margin:0 auto;}
+.navbar{position:fixed;bottom:0;left:0;right:0;z-index:30;background:rgba(20,23,29,.97);backdrop-filter:blur(10px);border-top:1px solid var(--line);display:flex;overflow-x:auto;}
+.navitem{flex:1;min-width:66px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:9px 2px 10px;color:var(--muted2);cursor:pointer;font-size:10.5px;font-weight:600;border:none;background:none;}
+.navitem.active{color:var(--blue);}
+.navitem svg{width:20px;height:20px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+.hero-plh{background:linear-gradient(155deg,#1B2430,#171B21);border:1px solid var(--line);border-radius:18px;padding:22px 20px;text-align:center;margin-bottom:14px;}
+.hero-plh .lbl{color:var(--muted);font-size:12.5px;font-weight:600;letter-spacing:.02em;}
+.hero-plh .val{font-size:52px;font-weight:700;line-height:1;margin:8px 0 6px;color:var(--blue);}
+.hero-plh .val span{font-size:20px;color:var(--muted);}
+.stat-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px;}
+.stat-card .l{color:var(--muted);font-size:11.5px;font-weight:600;margin-bottom:4px;}
+.stat-card .v{font-size:20px;font-weight:700;}
+h2.sec{font-size:14px;font-weight:700;margin:22px 0 10px;color:var(--text);}
+h2.sec:first-child{margin-top:0;}
+.row-between{display:flex;align-items:center;justify-content:space-between;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{text-align:left;color:var(--muted);font-weight:600;font-size:11px;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;}
+td{padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap;}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;-webkit-overflow-scrolling:touch;}
+.emp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.emp-btn{padding:12px 0;text-align:center;border-radius:10px;border:1px solid var(--line);background:var(--panel2);font-weight:700;cursor:pointer;}
+.emp-btn.active{background:var(--blue);border-color:var(--blue);color:#0A1420;}
+.modal-bg{position:fixed;inset:0;background:rgba(8,10,13,.7);z-index:50;display:flex;align-items:flex-end;justify-content:center;}
+.modal{background:var(--bg);border:1px solid var(--line);border-radius:18px 18px 0 0;width:100%;max-width:640px;max-height:92vh;overflow-y:auto;padding:18px 16px 26px;}
+.badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--panel2);color:var(--muted2);}
+.toast{position:fixed;bottom:92px;left:50%;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:11px 18px;border-radius:10px;font-size:13.5px;font-weight:600;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+.dt-item{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px;}
+.warn-box{background:var(--amber-dim);border:1px solid #6B5527;color:var(--amber);border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;}
+.empty{text-align:center;padding:36px 16px;color:var(--muted);}
+::-webkit-scrollbar{height:0;width:0;}
+@media print{
+  .navbar,.topbar,.no-print{display:none!important;}
+  body{background:#fff;color:#111;padding:0;}
+  .card,.stat-card{border-color:#ccc;background:#fff;}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ============ STORAGE ============ */
+const K = { products:'plh_products', runs:'plh_runs', machines:'plh_machines', settings:'plh_settings' };
+let state = { products:[], runs:[], machines:[], settings:{}, view:'dashboard', ready:false,
+  dashRange:'today', logFilters:{range:'last7', machine:'all', product:'all'},
+  perfTab:'product', perfProduct:null, perfMachine:null, compareIds:[],
+  quickDraft:null, editingRun:null, modal:null, toastMsg:null, storageOk:true };
+
+function defaultSettings(){
+  return { companyName:'', shiftLength:8, defaultBreak:30, plhMethod:'gross',
+    watchPct:5, attentionPct:10,
+    downtimeCategories:['Waiting for meat/product','Waiting for packaging materials','Waiting for warehouse','Waiting for labels','Machine breakdown','Machine adjustment','Changeover','Product change','QA hold','QA inspection','Pre-op','Cleaning','Maintenance','Rework','No work available','Employee shortage','Other'],
+    productCategories:['Steak','Burger Patties','Ground','Diced','Pork','Beef','Bison','Venison','Other'],
+    seeded:false };
+}
+
+async function storeGet(key){
+  try{ const r = await window.storage.get(key,false); return r?r.value:null; }
+  catch(e){ return null; }
+}
+async function storeSet(key,val){
+  try{ await window.storage.set(key,val,false); state.storageOk=true; return true; }
+  catch(e){ state.storageOk=false; console.error('storage fail',e); return false; }
+}
+async function loadAll(){
+  const [p,r,m,s] = await Promise.all([storeGet(K.products),storeGet(K.runs),storeGet(K.machines),storeGet(K.settings)]);
+  state.products = p ? JSON.parse(p) : [];
+  state.runs = r ? JSON.parse(r) : [];
+  state.machines = m ? JSON.parse(m) : [];
+  state.settings = s ? JSON.parse(s) : defaultSettings();
+  if(!state.machines.length){
+    state.machines = [
+      {id:uid(),name:'Machine 1',active:true},
+      {id:uid(),name:'Machine 2',active:true},
+      {id:uid(),name:'Machine 3',active:true},
+      {id:uid(),name:'Manual/Other',active:true}
+    ];
+    await saveMachines();
+  }
+  if(!state.settings.seeded && !state.products.length && !state.runs.length){
+    seedSampleData();
+    state.settings.seeded = true;
+    await Promise.all([saveProducts(),saveRuns(),saveSettings()]);
+  }
+}
+async function saveProducts(){ return storeSet(K.products, JSON.stringify(state.products)); }
+async function saveRuns(){ return storeSet(K.runs, JSON.stringify(state.runs)); }
+async function saveMachines(){ return storeSet(K.machines, JSON.stringify(state.machines)); }
+async function saveSettings(){ return storeSet(K.settings, JSON.stringify(state.settings)); }
+
+function uid(){ return 'id'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
+
+/* ============ SAMPLE DATA ============ */
+function seedSampleData(){
+  const cats = {ribeye:'Steak', grd:'Ground', diced:'Diced', pork:'Pork', bison:'Bison'};
+  state.products = [
+    {id:uid(),productId:'100001',productName:'Ribeye Steak',category:'Steak',targetPLH:225,unit:'lb',active:true,sample:true},
+    {id:uid(),productId:'100002',productName:'Ground Beef 5lb',category:'Ground',targetPLH:300,unit:'lb',active:true,sample:true},
+    {id:uid(),productId:'100003',productName:'Diced Beef 10lb',category:'Diced',targetPLH:210,unit:'lb',active:true,sample:true},
+    {id:uid(),productId:'100004',productName:'Pork Chops',category:'Pork',targetPLH:195,unit:'lb',active:true,sample:true},
+    {id:uid(),productId:'100005',productName:'Bison Burger Patties',category:'Burger Patties',targetPLH:180,unit:'lb',active:true,sample:true}
+  ];
+  const m = state.machines.length ? state.machines : [{id:uid(),name:'Machine 1'},{id:uid(),name:'Machine 2'},{id:uid(),name:'Machine 3'}];
+  const runs = [];
+  const today = new Date();
+  for(let dayOffset=6; dayOffset>=0; dayOffset--){
+    const d = new Date(today); d.setDate(d.getDate()-dayOffset);
+    const dateStr = d.toISOString().slice(0,10);
+    const numRuns = 2 + Math.floor(Math.random()*2);
+    let hour = 7;
+    for(let i=0;i<numRuns;i++){
+      const prod = state.products[Math.floor(Math.random()*state.products.length)];
+      const mach = m[i % m.length];
+      const emp = 2 + Math.floor(Math.random()*3);
+      const durHrs = 1.5 + Math.random()*2;
+      const startH = hour, startM = Math.random()>0.5?30:0;
+      let endTotal = startH*60+startM + durHrs*60;
+      const endH = Math.floor(endTotal/60)%24, endM = Math.round(endTotal%60);
+      hour = Math.ceil(endTotal/60)+ (Math.random()>0.6?1:0);
+      const brk = [0,15,30][Math.floor(Math.random()*3)];
+      const weight = Math.round((prod.targetPLH*(0.85+Math.random()*0.3)) * (durHrs - brk/60) * emp);
+      const dt = [];
+      if(Math.random()>0.55){
+        const cat = state.settings.downtimeCategories ? state.settings.downtimeCategories[Math.floor(Math.random()*6)] : 'Waiting for meat/product';
+        const dm = 10+Math.floor(Math.random()*25);
+        const dsH = startH, dsM = Math.min(50,startM+5);
+        let deTotal = dsH*60+dsM+dm;
+        dt.push({id:uid(), start:pad2(dsH)+':'+pad2(dsM), end:pad2(Math.floor(deTotal/60)%24)+':'+pad2(deTotal%60), category: cat, notes:''});
+      }
+      runs.push({
+        id:uid(), date:dateStr, productId:prod.productId, productName:prod.productName, category:prod.category,
+        machine:mach.name, quantity: Math.round(weight/6), weightLbs: weight, employeeCount: emp,
+        startTime: pad2(startH)+':'+pad2(startM), endTime: pad2(endH)+':'+pad2(endM), breakMinutes: brk,
+        downtime: dt, notes:'', sample:true, createdAt: d.toISOString(), updatedAt: d.toISOString()
+      });
+    }
+  }
+  state.runs = runs;
+}
+function pad2(n){ return String(Math.max(0,Math.min(23,n))).padStart(2,'0'); }
+
+/* ============ CALCULATIONS ============ */
+function toMinutes(t){ if(!t) return null; const p=t.split(':'); if(p.length<2) return null; const h=Number(p[0]),m=Number(p[1]); if(isNaN(h)||isNaN(m)) return null; return h*60+m; }
+function diffMinutes(start,end){ const s=toMinutes(start), e=toMinutes(end); if(s==null||e==null) return 0; let d=e-s; if(d<0) d+=1440; return d; }
+function fmtHM(mins){ mins=Math.round(mins||0); const h=Math.floor(mins/60), m=mins%60; return h>0 ? (h+'h '+m+'m') : (m+'m'); }
+
+function calcRun(run){
+  const prodMin = diffMinutes(run.startTime, run.endTime);
+  const workingMin = Math.max(0, prodMin - (Number(run.breakMinutes)||0));
+  const downtimeMin = (run.downtime||[]).reduce((a,d)=>a+diffMinutes(d.start,d.end),0);
+  const netProdMin = Math.max(0, workingMin - downtimeMin);
+  const emp = Number(run.employeeCount)||0;
+  const weight = Number(run.weightLbs)||0;
+  const grossLabourHours = (workingMin/60) * emp;
+  const netLabourHours = (netProdMin/60) * emp;
+  const grossPLH = grossLabourHours>0 ? weight/grossLabourHours : 0;
+  const netPLH = netLabourHours>0 ? weight/netLabourHours : 0;
+  return { prodMin, workingMin, downtimeMin, netProdMin, grossLabourHours, netLabourHours, grossPLH, netPLH, weight, emp };
+}
+function activePLH(run){ const c=calcRun(run); return state.settings.plhMethod==='net' ? c.netPLH : c.grossPLH; }
+function activeLabourHours(run){ const c=calcRun(run); return state.settings.plhMethod==='net' ? c.netLabourHours : c.grossLabourHours; }
+
+function targetFor(productId){ const p=state.products.find(x=>x.productId===productId); return p ? Number(p.targetPLH)||0 : 0; }
+function statusVs(target, plh){
+  if(!target) return {label:'No target', cls:'', pct:null};
+  const diff = plh-target, pct = (diff/target)*100;
+  const watch = state.settings.watchPct||5, bad = state.settings.attentionPct||10;
+  let cls='pill-good', label='Above target';
+  if(pct < -bad){ cls='pill-bad'; label='Needs attention'; }
+  else if(pct < -watch){ cls='pill-watch'; label='Watch'; }
+  else if(pct < 0){ cls='pill-watch'; label='Near target'; }
+  return {label, cls, pct, diff};
+}
+function fmt1(n){ return (Math.round((n||0)*10)/10).toFixed(1); }
+function fmt0(n){ return Math.round(n||0).toLocaleString(); }
+
+function runsInRange(range, custom){
+  const now = new Date(); const todayStr = now.toISOString().slice(0,10);
+  const d = (offset)=>{ const x=new Date(now); x.setDate(x.getDate()-offset); return x.toISOString().slice(0,10); };
+  let from, to = todayStr;
+  if(range==='today'){ from=todayStr; }
+  else if(range==='yesterday'){ from=d(1); to=d(1); }
+  else if(range==='last7'){ from=d(6); }
+  else if(range==='last30'){ from=d(29); }
+  else if(range==='thisWeek'){ const dow=(now.getDay()+6)%7; from=d(dow); }
+  else if(range==='thisMonth'){ from = todayStr.slice(0,8)+'01'; }
+  else if(range==='custom' && custom){ from=custom.from; to=custom.to; }
+  else { from='0000-01-01'; to='9999-12-31'; }
+  return state.runs.filter(r=>r.date>=from && r.date<=to);
+}
+
+/* ============ RENDER SHELL ============ */
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = topbarHtml() + '<main>' + viewHtml() + '</main>' + navbarHtml() + modalHtml() + toastHtml();
+  bindGlobal();
+}
+function icon(name){
+  const icons = {
+    dash:'<path d="M4 13h6V4H4v9zm0 7h6v-5H4v5zm10 0h6V11h-6v9zm0-16v5h6V4h-6z"/>',
+    entry:'<path d="M12 5v14M5 12h14"/>',
+    log:'<path d="M4 6h16M4 12h16M4 18h16"/>',
+    prod:'<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>',
+    perf:'<path d="M3 3v18h18M7 15l4-4 3 3 5-6"/>',
+    rep:'<path d="M9 12h6M9 16h6M9 8h6M5 3h14v18H5z"/>',
+    set:'<path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/>'
+  };
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+icons[name]+'</svg>';
+}
+function topbarHtml(){
+  const titles = {dashboard:'Dashboard', entry:'Quick Entry', log:'Production Log', products:'Products', performance:'Performance', reports:'Reports', settings:'Settings'};
+  const subs = {dashboard:'Pounds per Labour Hour', entry:'Fast floor entry', log:'Every production run', products:'Product master list', performance:'Trends & comparisons', reports:'Shift & management reports', settings:'Configuration'};
+  return '<div class="topbar"><h1>'+titles[state.view]+'</h1><div class="sub">'+subs[state.view]+(state.storageOk?'':' · <span style="color:var(--red)">storage unavailable — changes may not save</span>')+'</div></div>';
+}
+function navbarHtml(){
+  const items = [['dashboard','dash','Dashboard'],['entry','entry','Entry'],['log','log','Log'],['products','prod','Products'],['performance','perf','Perform'],['reports','rep','Reports'],['settings','set','Settings']];
+  return '<div class="navbar">'+items.map(([v,i,l])=>
+    '<button class="navitem '+(state.view===v?'active':'')+'" onclick="goTo(\''+v+'\')">'+icon(i)+'<span>'+l+'</span></button>'
+  ).join('')+'</div>';
+}
+function toastHtml(){ return state.toastMsg ? '<div class="toast">'+state.toastMsg+'</div>' : ''; }
+function toast(msg){ state.toastMsg=msg; render(); setTimeout(()=>{ state.toastMsg=null; render(); },1800); }
+function goTo(v){ state.view=v; state.modal=null; render(); window.scrollTo(0,0); }
+window.goTo = goTo;
+
+function viewHtml(){
+  switch(state.view){
+    case 'dashboard': return dashboardView();
+    case 'entry': return entryView();
+    case 'log': return logView();
+    case 'products': return productsView();
+    case 'performance': return performanceView();
+    case 'reports': return reportsView();
+    case 'settings': return settingsView();
+    default: return '';
+  }
+}
+
+/* ============ DASHBOARD ============ */
+function dashboardView(){
+  const runs = runsInRange(state.dashRange);
+  const totalLbs = runs.reduce((a,r)=>a+(Number(r.weightLbs)||0),0);
+  const totalQty = runs.reduce((a,r)=>a+(Number(r.quantity)||0),0);
+  const totalLabour = runs.reduce((a,r)=>a+activeLabourHours(r),0);
+  const overallPLH = totalLabour>0 ? totalLbs/totalLabour : 0;
+  const totalDowntime = runs.reduce((a,r)=>a+calcRun(r).downtimeMin,0);
+  const avgEmp = runs.length ? (runs.reduce((a,r)=>a+(Number(r.employeeCount)||0),0)/runs.length) : 0;
+  const avgTarget = (()=>{ const withT = runs.filter(r=>targetFor(r.productId)>0); if(!withT.length) return null;
+    return withT.reduce((a,r)=>a+targetFor(r.productId),0)/withT.length; })();
+  const variance = avgTarget ? overallPLH-avgTarget : null;
+
+  let best=null, worst=null;
+  runs.forEach(r=>{ const plh=activePLH(r); if(!best||plh>activePLH(best)) best=r; if(!worst||plh<activePLH(worst)) worst=r; });
+
+  const byMachine = {};
+  runs.forEach(r=>{ if(!byMachine[r.machine]) byMachine[r.machine]={lbs:0,hrs:0}; byMachine[r.machine].lbs+=Number(r.weightLbs)||0; byMachine[r.machine].hrs+=activeLabourHours(r); });
+
+  const ranges = [['today','Today'],['yesterday','Yesterday'],['last7','7 days'],['last30','30 days'],['thisWeek','This week'],['thisMonth','This month']];
+
+  return `
+  <div class="tabs no-print">${ranges.map(([v,l])=>`<div class="chip ${state.dashRange===v?'active':''}" onclick="setDashRange('${v}')">${l}</div>`).join('')}</div>
+
+  <div class="hero-plh">
+    <div class="lbl">OVERALL PLH (${state.settings.plhMethod==='net'?'Net':'Gross'})</div>
+    <div class="val">${fmt1(overallPLH)}<span> lbs/hr</span></div>
+    ${avgTarget!=null ? statusLine(variance, avgTarget) : '<div style="color:var(--muted);font-size:12.5px;">No target data for this period</div>'}
+  </div>
+
+  <div class="grid2" style="margin-bottom:10px;">
+    <div class="stat-card"><div class="l">TOTAL POUNDS</div><div class="v num">${fmt0(totalLbs)}</div></div>
+    <div class="stat-card"><div class="l">LABOUR HOURS</div><div class="v num">${fmt1(totalLabour)}</div></div>
+    <div class="stat-card"><div class="l">TOTAL QUANTITY</div><div class="v num">${fmt0(totalQty)}</div></div>
+    <div class="stat-card"><div class="l">DOWNTIME</div><div class="v num">${fmtHM(totalDowntime)}</div></div>
+    <div class="stat-card"><div class="l">PRODUCTION RUNS</div><div class="v num">${runs.length}</div></div>
+    <div class="stat-card"><div class="l">AVG EMPLOYEES</div><div class="v num">${fmt1(avgEmp)}</div></div>
+  </div>
+
+  <h2 class="sec">PLH trend</h2>
+  <div class="card"><canvas id="trendChart" height="140"></canvas></div>
+
+  <h2 class="sec">Performance summary</h2>
+  <div class="grid2">
+    <div class="stat-card"><div class="l">BEST PRODUCT</div><div class="v" style="font-size:14px;">${best?best.productName+' — '+fmt1(activePLH(best))+' PLH':'—'}</div></div>
+    <div class="stat-card"><div class="l">LOWEST PRODUCT</div><div class="v" style="font-size:14px;">${worst?worst.productName+' — '+fmt1(activePLH(worst))+' PLH':'—'}</div></div>
+  </div>
+
+  <h2 class="sec">Station summary</h2>
+  <div class="card">
+    ${Object.keys(byMachine).length ? Object.entries(byMachine).map(([m,v])=>{
+      const plh = v.hrs>0 ? v.lbs/v.hrs : 0;
+      return `<div class="row-between" style="padding:8px 0;border-bottom:1px solid var(--line);"><span>${m}</span><span class="num" style="font-weight:700;color:var(--blue);">${fmt1(plh)} PLH</span></div>`;
+    }).join('') : '<div class="empty">No runs recorded for this period.</div>'}
+  </div>
+  <div style="height:6px;"></div>
+  `;
+}
+function statusLine(variance, target){
+  const pct = (variance/target)*100;
+  const good = variance>=0;
+  const color = good ? 'var(--green)' : (Math.abs(pct)>(state.settings.attentionPct||10) ? 'var(--red)' : 'var(--amber)');
+  return `<div style="color:${color};font-size:13px;font-weight:600;">${good?'+':''}${fmt1(variance)} PLH vs target (${fmt1(target)}) · ${good?'+':''}${fmt1(pct)}%</div>`;
+}
+function setDashRange(v){ state.dashRange=v; render(); drawTrendChart(); }
+
+let trendChartInstance=null;
+function drawTrendChart(){
+  const canvas = document.getElementById('trendChart');
+  if(!canvas || typeof Chart==='undefined') return;
+  const days = [];
+  for(let i=13;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); days.push(d.toISOString().slice(0,10)); }
+  const data = days.map(day=>{
+    const rs = state.runs.filter(r=>r.date===day);
+    const lbs = rs.reduce((a,r)=>a+(Number(r.weightLbs)||0),0);
+    const hrs = rs.reduce((a,r)=>a+activeLabourHours(r),0);
+    return hrs>0 ? +(lbs/hrs).toFixed(1) : null;
+  });
+  if(trendChartInstance) trendChartInstance.destroy();
+  trendChartInstance = new Chart(canvas,{
+    type:'line',
+    data:{ labels: days.map(d=>d.slice(5)), datasets:[{ data, borderColor:'#4FA8FF', backgroundColor:'rgba(79,168,255,.12)', fill:true, tension:.3, pointRadius:2, spanGaps:true }]},
+    options:{ plugins:{legend:{display:false}}, scales:{ x:{ ticks:{color:'#8A93A3',font:{size:10}}, grid:{color:'#242830'}}, y:{ ticks:{color:'#8A93A3',font:{size:10}}, grid:{color:'#242830'}}}}
+  });
+}
+
+/* ============ QUICK ENTRY ============ */
+function blankRun(){
+  return { id:null, date:new Date().toISOString().slice(0,10), productId:'', productName:'', category:'',
+    machine: state._lastMachine || (state.machines[0]?state.machines[0].name:''), quantity:'', weightLbs:'', employeeCount: state._lastEmp||3,
+    startTime:'', endTime:'', breakMinutes: state.settings.defaultBreak||30, downtime:[], notes:'' };
+}
+function entryView(){
+  if(!state.quickDraft) state.quickDraft = state.editingRun ? JSON.parse(JSON.stringify(state.editingRun)) : blankRun();
+  const d = state.quickDraft;
+  const recentProducts = [...new Set(state.runs.slice().reverse().map(r=>r.productId))].slice(0,5)
+    .map(pid=>state.products.find(p=>p.productId===pid)).filter(Boolean);
+  const c = calcRun(d);
+  const target = targetFor(d.productId);
+  const empOptions = [1,2,3,4,5,6,7];
+
+  return `
+  ${state.editingRun ? `<div class="warn-box no-print">Editing run from ${d.date}. <span style="text-decoration:underline;cursor:pointer;" onclick="cancelEdit()">Cancel edit</span></div>` : ''}
+  ${recentProducts.length ? `<div class="tabs no-print">${recentProducts.map(p=>`<div class="chip" onclick="pickProduct('${p.productId}')">${p.productName}</div>`).join('')}</div>` : ''}
+
+  <div class="card">
+    <div class="field"><label>Date</label><input type="date" value="${d.date}" onchange="updDraft('date',this.value)"></div>
+
+    <div class="field"><label>Product ID</label>
+      <input list="prodlist" value="${d.productId}" placeholder="Type or select…" oninput="onProductIdInput(this.value)">
+      <datalist id="prodlist">${state.products.filter(p=>p.active!==false).map(p=>`<option value="${p.productId}">${p.productName}</option>`).join('')}</datalist>
+    </div>
+    ${d.productName ? `<div style="margin:-6px 0 14px;color:var(--muted);font-size:13px;">${d.productName}${d.category?' · '+d.category:''}${target?' · Target '+fmt1(target)+' PLH':' · No target set'}</div>` : ''}
+
+    <div class="field"><label>Machine / Station</label>
+      <select onchange="updDraft('machine',this.value)">
+        ${state.machines.filter(m=>m.active!==false).map(m=>`<option value="${m.name}" ${d.machine===m.name?'selected':''}>${m.name}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="grid2">
+      <div class="field"><label>Quantity produced</label><input type="number" min="0" inputmode="numeric" value="${d.quantity}" onchange="updDraft('quantity',this.value)" placeholder="e.g. 120"></div>
+      <div class="field"><label>Total weight (lbs)</label><input type="number" min="0" inputmode="decimal" value="${d.weightLbs}" onchange="updDraft('weightLbs',this.value)" placeholder="e.g. 3600"></div>
+    </div>
+
+    <div class="field"><label>Number of employees</label>
+      <div class="emp-grid">
+        ${empOptions.map(n=>`<div class="emp-btn ${Number(d.employeeCount)===n?'active':''}" onclick="updDraft('employeeCount',${n})">${n}</div>`).join('')}
+        <div class="emp-btn ${Number(d.employeeCount)>=8?'active':''}" onclick="promptCustomEmp()">8+</div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="field"><label>Start time</label><input type="time" value="${d.startTime}" onchange="updDraft('startTime',this.value)"></div>
+      <div class="field"><label>End time</label><input type="time" value="${d.endTime}" onchange="updDraft('endTime',this.value)"></div>
+    </div>
+
+    <div class="field"><label>Break time (minutes)</label>
+      <div class="tabs">${[0,15,30,45,60].map(m=>`<div class="chip ${Number(d.breakMinutes)===m?'active':''}" onclick="updDraft('breakMinutes',${m})">${m} min</div>`).join('')}</div>
+    </div>
+  </div>
+
+  <h2 class="sec">Downtime <span class="badge">optional</span></h2>
+  <div class="card">
+    ${(d.downtime||[]).map((dt,i)=>`
+      <div class="dt-item">
+        <div class="row-between"><strong style="font-size:13px;">${dt.category||'Downtime'}</strong><span style="color:var(--red);cursor:pointer;font-size:12px;" onclick="removeDowntime(${i})">Remove</span></div>
+        <div style="color:var(--muted);font-size:12.5px;margin-top:2px;">${dt.start||'--'} → ${dt.end||'--'} (${fmtHM(diffMinutes(dt.start,dt.end))})${dt.notes?' · '+dt.notes:''}</div>
+      </div>`).join('')}
+    <button class="btn btn-ghost btn-block" onclick="addDowntime()">+ Add downtime entry</button>
+  </div>
+
+  <h2 class="sec">Notes</h2>
+  <div class="card"><textarea rows="2" placeholder="Optional notes…" onchange="updDraft('notes',this.value)">${d.notes||''}</textarea></div>
+
+  <h2 class="sec">Preview</h2>
+  <div class="card grid2">
+    <div><div style="color:var(--muted);font-size:11.5px;">GROSS PLH</div><div class="num" style="font-size:22px;font-weight:700;color:var(--blue);">${fmt1(c.grossPLH)}</div></div>
+    <div><div style="color:var(--muted);font-size:11.5px;">NET PLH</div><div class="num" style="font-size:22px;font-weight:700;">${fmt1(c.netPLH)}</div></div>
+    <div><div style="color:var(--muted);font-size:11.5px;">LABOUR HOURS (GROSS)</div><div class="num">${fmt1(c.grossLabourHours)}</div></div>
+    <div><div style="color:var(--muted);font-size:11.5px;">DOWNTIME</div><div class="num">${fmtHM(c.downtimeMin)}</div></div>
+  </div>
+  ${entryWarnings(d,c).map(w=>`<div class="warn-box">${w}</div>`).join('')}
+
+  <div style="display:flex;gap:10px;margin-top:16px;">
+    ${!state.editingRun ? `<button class="btn btn-ghost" onclick="duplicatePrevious()" style="flex:1;">Duplicate previous</button>` : ''}
+  </div>
+  <div style="display:flex;gap:10px;margin-top:10px;">
+    <button class="btn btn-primary2 btn-block" onclick="saveDraft(true)">Save & Add Another</button>
+    <button class="btn btn-primary btn-block" onclick="saveDraft(false)">Save & Finish</button>
+  </div>
+  `;
+}
+function entryWarnings(d,c){
+  const w=[];
+  if(!d.employeeCount) w.push('No employees entered.');
+  if(!d.startTime || !d.endTime) w.push('Start/end time is missing.');
+  if(d.productId && !targetFor(d.productId)) w.push('This product has no target PLH set.');
+  if(d.weightLbs){
+    const hist = state.runs.filter(r=>r.productId===d.productId).map(r=>Number(r.weightLbs));
+    if(hist.length>=3){
+      const avg = hist.reduce((a,b)=>a+b,0)/hist.length;
+      if(Number(d.weightLbs) > avg*2.5) w.push("Weight is unusually high compared to this product's history.");
+      if(Number(d.weightLbs) < avg*0.3) w.push("Weight is unusually low compared to this product's history.");
+    }
+  }
+  return w;
+}
+function updDraft(key,val){ state.quickDraft[key]=val; if(key==='machine') state._lastMachine=val; if(key==='employeeCount') state._lastEmp=val; render(); }
+window.updDraft=updDraft;
+function onProductIdInput(val){
+  state.quickDraft.productId = val;
+  const p = state.products.find(x=>x.productId===val);
+  if(p){ state.quickDraft.productName=p.productName; state.quickDraft.category=p.category; }
+  render();
+}
+window.onProductIdInput=onProductIdInput;
+function pickProduct(pid){ onProductIdInput(pid); }
+window.pickProduct=pickProduct;
+function promptCustomEmp(){ const v=prompt('Number of employees:', state.quickDraft.employeeCount||8); if(v && !isNaN(v)) updDraft('employeeCount',Number(v)); }
+window.promptCustomEmp=promptCustomEmp;
+function addDowntime(){
+  state.modal = { type:'downtime', draft:{start:'',end:'',category:state.settings.downtimeCategories[0],notes:''} };
+  render();
+}
+window.addDowntime=addDowntime;
+function removeDowntime(i){ state.quickDraft.downtime.splice(i,1); render(); }
+window.removeDowntime=removeDowntime;
+function duplicatePrevious(){
+  if(!state.runs.length){ toast('No previous entry to duplicate'); return; }
+  const last = state.runs[state.runs.length-1];
+  state.quickDraft = { ...blankRun(), productId:last.productId, productName:last.productName, category:last.category,
+    machine:last.machine, employeeCount:last.employeeCount, breakMinutes:last.breakMinutes };
+  render();
+}
+window.duplicatePrevious=duplicatePrevious;
+function cancelEdit(){ state.editingRun=null; state.quickDraft=null; goTo('log'); }
+window.cancelEdit=cancelEdit;
+
+function validateRun(d){
+  const errs=[];
+  if(!d.productId) errs.push('Product ID is required.');
+  if(Number(d.weightLbs) < 0) errs.push('Weight cannot be negative.');
+  if(Number(d.quantity) < 0) errs.push('Quantity cannot be negative.');
+  if(!d.employeeCount || Number(d.employeeCount)<=0) errs.push('Employees must be at least 1.');
+  if(d.startTime && d.endTime && diffMinutes(d.startTime,d.endTime)<=0) errs.push('End time must be after start time.');
+  return errs;
+}
+async function saveDraft(addAnother){
+  const d = state.quickDraft;
+  const errs = validateRun(d);
+  if(errs.length){ alert(errs.join('\\n')); return; }
+  const p = state.products.find(x=>x.productId===d.productId);
+  if(p){ d.productName=p.productName; d.category=p.category; }
+  d.updatedAt = new Date().toISOString();
+  if(d.id){
+    const idx = state.runs.findIndex(r=>r.id===d.id);
+    if(idx>-1) state.runs[idx]=d;
+  } else {
+    d.id = uid(); d.createdAt = new Date().toISOString();
+    state.runs.push(d);
+  }
+  await saveRuns();
+  toast('Production run saved');
+  state.editingRun = null;
+  if(addAnother){ state.quickDraft = blankRun(); render(); }
+  else { state.quickDraft = null; goTo('log'); }
+}
+window.saveDraft=saveDraft;
+
+/* ============ PRODUCTION LOG ============ */
+function logView(){
+  const ranges = [['today','Today'],['yesterday','Yesterday'],['last7','7 days'],['last30','30 days'],['thisWeek','This week'],['thisMonth','This month'],['all','All time']];
+  let runs = runsInRange(state.logFilters.range).slice();
+  if(state.logFilters.machine!=='all') runs = runs.filter(r=>r.machine===state.logFilters.machine);
+  if(state.logFilters.product!=='all') runs = runs.filter(r=>r.productId===state.logFilters.product);
+  runs.sort((a,b)=> (b.date+b.startTime).localeCompare(a.date+a.startTime));
+
+  return `
+  <div class="tabs no-print">${ranges.map(([v,l])=>`<div class="chip ${state.logFilters.range===v?'active':''}" onclick="setLogFilter('range','${v}')">${l}</div>`).join('')}</div>
+  <div class="grid2 no-print" style="margin-bottom:14px;">
+    <select onchange="setLogFilter('machine',this.value)">
+      <option value="all">All machines</option>
+      ${state.machines.map(m=>`<option value="${m.name}" ${state.logFilters.machine===m.name?'selected':''}>${m.name}</option>`).join('')}
+    </select>
+    <select onchange="setLogFilter('product',this.value)">
+      <option value="all">All products</option>
+      ${state.products.map(p=>`<option value="${p.productId}" ${state.logFilters.product===p.productId?'selected':''}>${p.productName}</option>`).join('')}
+    </select>
+  </div>
+  <div class="row-between no-print" style="margin-bottom:10px;">
+    <span style="color:var(--muted);font-size:12.5px;">${runs.length} run${runs.length!==1?'s':''}</span>
+    <button class="btn btn-ghost" style="padding:8px 12px;font-size:12.5px;" onclick="exportCSV(getFilteredLogRuns())">Export CSV</button>
+  </div>
+  ${runs.length ? `<div class="tablewrap"><table>
+    <thead><tr><th>Date</th><th>Product</th><th>Machine</th><th>Qty</th><th>Lbs</th><th>Emp</th><th>Start</th><th>End</th><th>Brk</th><th>DT</th><th>Lbr Hrs</th><th>PLH</th><th>Target</th><th>Var%</th><th></th></tr></thead>
+    <tbody>${runs.map(r=>{
+      const c=calcRun(r); const plh=activePLH(r); const t=targetFor(r.productId); const st=statusVs(t,plh);
+      return `<tr>
+        <td>${r.date}</td><td>${r.productName||r.productId}${r.sample?' <span class=\\"badge\\">sample</span>':''}</td><td>${r.machine}</td>
+        <td class="num">${fmt0(r.quantity)}</td><td class="num">${fmt0(r.weightLbs)}</td><td class="num">${r.employeeCount}</td>
+        <td>${r.startTime||'—'}</td><td>${r.endTime||'—'}</td><td>${r.breakMinutes||0}</td><td>${fmtHM(c.downtimeMin)}</td>
+        <td class="num">${fmt1(activeLabourHours(r))}</td><td class="num" style="color:var(--blue);font-weight:700;">${fmt1(plh)}</td>
+        <td class="num">${t?fmt1(t):'—'}</td><td class="num ${st.pct<0?'':''}" style="color:${st.pct==null?'var(--muted)':st.pct>=0?'var(--green)':'var(--red)'};">${st.pct==null?'—':(st.pct>=0?'+':'')+fmt1(st.pct)+'%'}</td>
+        <td><span style="color:var(--blue);cursor:pointer;font-size:12px;" onclick="editRun('${r.id}')">Edit</span> · <span style="color:var(--red);cursor:pointer;font-size:12px;" onclick="deleteRun('${r.id}')">Del</span></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table></div>` : '<div class="empty">No production runs in this range.</div>'}
+  `;
+}
+function getFilteredLogRuns(){
+  let runs = runsInRange(state.logFilters.range).slice();
+  if(state.logFilters.machine!=='all') runs = runs.filter(r=>r.machine===state.logFilters.machine);
+  if(state.logFilters.product!=='all') runs = runs.filter(r=>r.productId===state.logFilters.product);
+  return runs;
+}
+window.getFilteredLogRuns=getFilteredLogRuns;
+function setLogFilter(key,val){ state.logFilters[key]=val; render(); }
+window.setLogFilter=setLogFilter;
+function editRun(id){ state.editingRun = JSON.parse(JSON.stringify(state.runs.find(r=>r.id===id))); state.quickDraft=null; goTo('entry'); }
+window.editRun=editRun;
+function deleteRun(id){
+  if(!confirm('Delete this production run? This cannot be undone.')) return;
+  state.runs = state.runs.filter(r=>r.id!==id);
+  saveRuns(); render(); toast('Run deleted');
+}
+window.deleteRun=deleteRun;
+
+function exportCSV(runs){
+  const cols = ['Date','ProductID','ProductName','Machine','Quantity','Lbs','Employees','Start','End','Break','DowntimeMin','LabourHoursGross','LabourHoursNet','GrossPLH','NetPLH','TargetPLH','VariancePct','Notes'];
+  const lines = [cols.join(',')];
+  runs.forEach(r=>{
+    const c=calcRun(r); const t=targetFor(r.productId); const st=statusVs(t,activePLH(r));
+    const row = [r.date,r.productId,csvSafe(r.productName),csvSafe(r.machine),r.quantity,r.weightLbs,r.employeeCount,r.startTime,r.endTime,r.breakMinutes,
+      c.downtimeMin,fmt1(c.grossLabourHours),fmt1(c.netLabourHours),fmt1(c.grossPLH),fmt1(c.netPLH),t||'',st.pct==null?'':fmt1(st.pct),csvSafe(r.notes||'')];
+    lines.push(row.join(','));
+  });
+  downloadFile('plh_production_log_'+new Date().toISOString().slice(0,10)+'.csv', lines.join('\\n'), 'text/csv');
+}
+window.exportCSV=exportCSV;
+function csvSafe(s){ s=String(s||''); return /[,"\\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }
+function downloadFile(filename, content, type){
+  const blob = new Blob([content],{type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
+/* ============ PRODUCTS ============ */
+function productsView(){
+  return `
+  <button class="btn btn-primary btn-block no-print" onclick="openProductModal(null)">+ Add product</button>
+  <div style="height:14px;"></div>
+  ${state.products.length ? state.products.map(p=>`
+    <div class="card" style="margin-bottom:10px;opacity:${p.active===false?0.5:1};">
+      <div class="row-between">
+        <div>
+          <div style="font-weight:700;">${p.productName} ${p.sample?'<span class=\\"badge\\">sample</span>':''}${p.active===false?'<span class=\\"badge\\">inactive</span>':''}</div>
+          <div style="color:var(--muted);font-size:12.5px;margin-top:2px;">ID ${p.productId} · ${p.category||'Uncategorized'} · Target ${p.targetPLH?fmt1(p.targetPLH):'—'} PLH</div>
+        </div>
+        <div style="text-align:right;font-size:12.5px;">
+          <div style="color:var(--blue);cursor:pointer;" onclick="openProductModal('${p.id}')">Edit</div>
+          <div style="color:var(--muted);cursor:pointer;margin-top:4px;" onclick="toggleProductActive('${p.id}')">${p.active===false?'Activate':'Deactivate'}</div>
+        </div>
+      </div>
+    </div>`).join('') : '<div class="empty">No products yet. Add your first product to get started.</div>'}
+  `;
+}
+function openProductModal(id){
+  const p = id ? state.products.find(x=>x.id===id) : {id:null,productId:'',productName:'',description:'',category:state.settings.productCategories[0],targetPLH:'',unit:'lb',active:true};
+  state.modal = {type:'product', draft:{...p}};
+  render();
+}
+window.openProductModal=openProductModal;
+function toggleProductActive(id){
+  const p = state.products.find(x=>x.id===id); p.active = p.active===false ? true : false;
+  saveProducts(); render();
+}
+window.toggleProductActive=toggleProductActive;
+async function saveProductModal(){
+  const d = state.modal.draft;
+  if(!d.productId || !d.productName){ alert('Product ID and Product Name are required.'); return; }
+  if(d.id){ const idx=state.products.findIndex(x=>x.id===d.id); state.products[idx]=d; }
+  else { d.id=uid(); state.products.push(d); }
+  await saveProducts(); state.modal=null; render(); toast('Product saved');
+}
+window.saveProductModal=saveProductModal;
+
+/* ============ PERFORMANCE ============ */
+function performanceView(){
+  const tabs = [['product','Product'],['machine','Machine'],['compare','Compare'],['insights','Insights']];
+  return `
+  <div class="tabs no-print">${tabs.map(([v,l])=>`<div class="chip ${state.perfTab===v?'active':''}" onclick="setPerfTab('${v}')">${l}</div>`).join('')}</div>
+  ${state.perfTab==='product' ? productPerfView() : state.perfTab==='machine' ? machinePerfView() : state.perfTab==='compare' ? compareView() : insightsView()}
+  `;
+}
+function setPerfTab(v){ state.perfTab=v; render(); if(v==='product') setTimeout(drawProductTrend,30); }
+window.setPerfTab=setPerfTab;
+
+function productPerfView(){
+  if(!state.perfProduct && state.products.length) state.perfProduct = state.products[0].productId;
+  const runs = state.runs.filter(r=>r.productId===state.perfProduct);
+  if(!runs.length) return `
+    <select onchange="selectPerfProduct(this.value)">${state.products.map(p=>`<option value="${p.productId}" ${state.perfProduct===p.productId?'selected':''}>${p.productName}</option>`).join('')}</select>
+    <div class="empty">No production runs recorded for this product yet.</div>`;
+  const totalLbs = runs.reduce((a,r)=>a+(Number(r.weightLbs)||0),0);
+  const totalQty = runs.reduce((a,r)=>a+(Number(r.quantity)||0),0);
+  const totalLabour = runs.reduce((a,r)=>a+activeLabourHours(r),0);
+  const avgPLH = totalLabour>0 ? totalLbs/totalLabour : 0;
+  const plhs = runs.map(activePLH);
+  const bestPLH = Math.max(...plhs), lowPLH = Math.min(...plhs);
+  const target = targetFor(state.perfProduct);
+  const st = statusVs(target, avgPLH);
+  const avgEmp = runs.reduce((a,r)=>a+(Number(r.employeeCount)||0),0)/runs.length;
+  const avgMin = runs.reduce((a,r)=>a+calcRun(r).workingMin,0)/runs.length;
+  const totalDT = runs.reduce((a,r)=>a+calcRun(r).downtimeMin,0);
+
+  return `
+  <select onchange="selectPerfProduct(this.value)">${state.products.map(p=>`<option value="${p.productId}" ${state.perfProduct===p.productId?'selected':''}>${p.productName}</option>`).join('')}</select>
+  <div style="height:14px;"></div>
+  <div class="hero-plh"><div class="lbl">AVERAGE PLH</div><div class="val">${fmt1(avgPLH)}<span> lbs/hr</span></div>${target?`<span class="chip ${st.cls}">${st.label} · ${(st.pct>=0?'+':'')+fmt1(st.pct)}%</span>`:'<div style="color:var(--muted);font-size:12.5px;">No target set</div>'}</div>
+  <div class="grid2">
+    <div class="stat-card"><div class="l">TOTAL LBS</div><div class="v num">${fmt0(totalLbs)}</div></div>
+    <div class="stat-card"><div class="l">TOTAL QTY</div><div class="v num">${fmt0(totalQty)}</div></div>
+    <div class="stat-card"><div class="l">LABOUR HOURS</div><div class="v num">${fmt1(totalLabour)}</div></div>
+    <div class="stat-card"><div class="l">RUNS</div><div class="v num">${runs.length}</div></div>
+    <div class="stat-card"><div class="l">BEST PLH</div><div class="v num" style="color:var(--green);">${fmt1(bestPLH)}</div></div>
+    <div class="stat-card"><div class="l">LOWEST PLH</div><div class="v num" style="color:var(--red);">${fmt1(lowPLH)}</div></div>
+    <div class="stat-card"><div class="l">AVG EMPLOYEES</div><div class="v num">${fmt1(avgEmp)}</div></div>
+    <div class="stat-card"><div class="l">AVG PROD. TIME</div><div class="v num">${fmtHM(avgMin)}</div></div>
+    <div class="stat-card"><div class="l">TOTAL DOWNTIME</div><div class="v num">${fmtHM(totalDT)}</div></div>
+    <div class="stat-card"><div class="l">TARGET PLH</div><div class="v num">${target?fmt1(target):'—'}</div></div>
+  </div>
+  <h2 class="sec">PLH by date</h2>
+  <div class="card"><canvas id="productTrendChart" height="150"></canvas></div>
+  `;
+}
+function selectPerfProduct(v){ state.perfProduct=v; render(); setTimeout(drawProductTrend,30); }
+window.selectPerfProduct=selectPerfProduct;
+let productTrendChartInstance=null;
+function drawProductTrend(){
+  const canvas=document.getElementById('productTrendChart'); if(!canvas||typeof Chart==='undefined') return;
+  const runs = state.runs.filter(r=>r.productId===state.perfProduct).slice().sort((a,b)=>a.date.localeCompare(b.date));
+  if(productTrendChartInstance) productTrendChartInstance.destroy();
+  productTrendChartInstance = new Chart(canvas,{ type:'line',
+    data:{ labels:runs.map(r=>r.date.slice(5)), datasets:[{data:runs.map(r=>+fmt1(activePLH(r))), borderColor:'#4FA8FF', backgroundColor:'rgba(79,168,255,.12)', fill:true, tension:.25, pointRadius:3}] },
+    options:{ plugins:{legend:{display:false}}, scales:{x:{ticks:{color:'#8A93A3',font:{size:10}},grid:{color:'#242830'}},y:{ticks:{color:'#8A93A3',font:{size:10}},grid:{color:'#242830'}}}}
+  });
+}
+
+function machinePerfView(){
+  return state.machines.filter(m=>m.active!==false).map(m=>{
+    const runs = state.runs.filter(r=>r.machine===m.name);
+    if(!runs.length) return `<div class="card" style="margin-bottom:12px;"><div style="font-weight:700;margin-bottom:6px;">${m.name}</div><div class="empty" style="padding:14px;">No runs recorded.</div></div>`;
+    const lbs = runs.reduce((a,r)=>a+(Number(r.weightLbs)||0),0);
+    const hrs = runs.reduce((a,r)=>a+activeLabourHours(r),0);
+    const plh = hrs>0?lbs/hrs:0;
+    const dt = runs.reduce((a,r)=>a+calcRun(r).downtimeMin,0);
+    const avgEmp = runs.reduce((a,r)=>a+(Number(r.employeeCount)||0),0)/runs.length;
+    let best=null,worst=null; runs.forEach(r=>{const p=activePLH(r); if(!best||p>activePLH(best))best=r; if(!worst||p<activePLH(worst))worst=r;});
+    return `<div class="card" style="margin-bottom:12px;">
+      <div class="row-between" style="margin-bottom:10px;"><span style="font-weight:700;">${m.name}</span><span class="num" style="color:var(--blue);font-weight:700;font-size:18px;">${fmt1(plh)} PLH</span></div>
+      <div class="grid3">
+        <div class="stat-card"><div class="l">LBS</div><div class="v num" style="font-size:15px;">${fmt0(lbs)}</div></div>
+        <div class="stat-card"><div class="l">LABOUR HRS</div><div class="v num" style="font-size:15px;">${fmt1(hrs)}</div></div>
+        <div class="stat-card"><div class="l">RUNS</div><div class="v num" style="font-size:15px;">${runs.length}</div></div>
+        <div class="stat-card"><div class="l">DOWNTIME</div><div class="v num" style="font-size:15px;">${fmtHM(dt)}</div></div>
+        <div class="stat-card"><div class="l">AVG EMP</div><div class="v num" style="font-size:15px;">${fmt1(avgEmp)}</div></div>
+      </div>
+      <div style="margin-top:8px;font-size:12.5px;color:var(--muted);">Best: ${best?best.productName+' ('+fmt1(activePLH(best))+')':'—'} · Lowest: ${worst?worst.productName+' ('+fmt1(activePLH(worst))+')':'—'}</div>
+    </div>`;
+  }).join('');
+}
+
+function compareView(){
+  return `
+  <div class="card" style="margin-bottom:14px;">
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px;">Select products to compare</div>
+    <div class="tabs">${state.products.map(p=>`<div class="chip ${state.compareIds.includes(p.productId)?'active':''}" onclick="toggleCompare('${p.productId}')">${p.productName}</div>`).join('')}</div>
+  </div>
+  ${state.compareIds.length ? `<div class="tablewrap"><table>
+    <thead><tr><th>Product</th><th>Lbs</th><th>Labour Hrs</th><th>PLH</th><th>Target</th><th>%vs T</th><th>Avg Emp</th><th>Downtime</th></tr></thead>
+    <tbody>${state.compareIds.map(pid=>{
+      const runs=state.runs.filter(r=>r.productId===pid); const p=state.products.find(x=>x.productId===pid);
+      const lbs=runs.reduce((a,r)=>a+(Number(r.weightLbs)||0),0); const hrs=runs.reduce((a,r)=>a+activeLabourHours(r),0);
+      const plh=hrs>0?lbs/hrs:0; const t=targetFor(pid); const st=statusVs(t,plh);
+      const avgEmp = runs.length? runs.reduce((a,r)=>a+(Number(r.employeeCount)||0),0)/runs.length : 0;
+      const dt = runs.reduce((a,r)=>a+calcRun(r).downtimeMin,0);
+      return `<tr><td>${p?p.productName:pid}</td><td class="num">${fmt0(lbs)}</td><td class="num">${fmt1(hrs)}</td><td class="num" style="color:var(--blue);font-weight:700;">${fmt1(plh)}</td><td class="num">${t?fmt1(t):'—'}</td><td class="num" style="color:${st.pct==null?'var(--muted)':st.pct>=0?'var(--green)':'var(--red)'};">${st.pct==null?'—':(st.pct>=0?'+':'')+fmt1(st.pct)+'%'}</td><td class="num">${fmt1(avgEmp)}</td><td class="num">${fmtHM(dt)}</td></tr>`;
+    }).join('')}</tbody></table></div>` : '<div class="empty">Select two or more products above to compare.</div>'}
+  `;
+}
+function toggleCompare(pid){
+  const i = state.compareIds.indexOf(pid);
+  if(i>-1) state.compareIds.splice(i,1); else state.compareIds.push(pid);
+  render();
+}
+window.toggleCompare=toggleCompare;
+
+function insightsView(){
+  const byProduct = {};
+  state.runs.forEach(r=>{ (byProduct[r.productId]=byProduct[r.productId]||[]).push(r); });
+  const items = [];
+  Object.entries(byProduct).forEach(([pid,runs])=>{
+    if(runs.length<3) return;
+    const p = state.products.find(x=>x.productId===pid);
+    const lbs=runs.reduce((a,r)=>a+(Number(r.weightLbs)||0),0), hrs=runs.reduce((a,r)=>a+activeLabourHours(r),0);
+    const plh=hrs>0?lbs/hrs:0; const t=targetFor(pid);
+    if(t){ const st=statusVs(t,plh); if(st.pct<-(state.settings.attentionPct||10)) items.push({type:'bad',text:`${p?p.productName:pid} is running ${fmt1(Math.abs(st.pct))}% below its target PLH across ${runs.length} runs.`}); }
+    const dt = runs.reduce((a,r)=>a+calcRun(r).downtimeMin,0);
+    const avgDT = dt/runs.length;
+    if(avgDT>20) items.push({type:'watch',text:`${p?p.productName:pid} averages ${fmtHM(avgDT)} of downtime per run.`});
+  });
+  const byMachine={};
+  state.runs.forEach(r=>{ (byMachine[r.machine]=byMachine[r.machine]||[]).push(r); });
+  const machineStats = Object.entries(byMachine).filter(([m,rs])=>rs.length>=3).map(([m,rs])=>{
+    const lbs=rs.reduce((a,r)=>a+(Number(r.weightLbs)||0),0), hrs=rs.reduce((a,r)=>a+activeLabourHours(r),0);
+    return {m, plh: hrs>0?lbs/hrs:0};
+  }).sort((a,b)=>a.plh-b.plh);
+  if(machineStats.length>=2) items.push({type:'watch',text:`${machineStats[0].m} has the lowest average PLH (${fmt1(machineStats[0].plh)}) among stations with sufficient data.`});
+
+  return `
+  <div class="card">
+    ${items.length ? items.map(i=>`<div class="dt-item" style="border-left:3px solid ${i.type==='bad'?'var(--red)':'var(--amber)'};">${i.text}</div>`).join('') : '<div class="empty">Not enough data yet.</div>'}
+  </div>
+  `;
+}
+
+/* ============ REPORTS ============ */
+function reportsView(){
+  if(!state._reportRange) state._reportRange='today';
+  const runs = runsInRange(state._reportRange);
+  return `
+  <div class="tabs no-print">${[['today','Daily'],['thisWeek','Weekly'],['thisMonth','Monthly']].map(([v,l])=>`<div class="chip ${state._reportRange===v?'active':''}" onclick="setReportRange('${v}')">${l}</div>`).join('')}</div>
+  <button class="btn btn-primary btn-block no-print" onclick="renderReportModal()">Generate ${state._reportRange==='today'?'Shift/Daily':state._reportRange==='thisWeek'?'Weekly':'Monthly'} Report</button>
+  <div style="height:16px;"></div>
+  <h2 class="sec">Other reports</h2>
+  <div class="grid2">
+    <button class="btn btn-ghost" onclick="setPerfTab('product');goTo('performance')">Product performance</button>
+    <button class="btn btn-ghost" onclick="setPerfTab('machine');goTo('performance')">Machine performance</button>
+    <button class="btn btn-ghost" onclick="showDowntimeReport()">Downtime report</button>
+    <button class="btn btn-ghost" onclick="exportCSV(runsInRange(state._reportRange))">Export CSV (${state._reportRange})</button>
+  </div>
+  `;
+}
+function setReportRange(v){ state._reportRange=v; render(); }
+window.setReportRange=setReportRange;
+
+function buildReportText(runs, label){
+  const totalLbs = runs.reduce((a,r)=>a+(Number(r.weightLbs)||0),0);
+  const totalQty = runs.reduce((a,r)=>a+(Number(r.quantity)||0),0);
+  const totalLabour = runs.reduce((a,r)=>a+activeLabourHours(r),0);
+  const overallPLH = totalLabour>0 ? totalLbs/totalLabour : 0;
+  const totalDT = runs.reduce((a,r)=>a+calcRun(r).downtimeMin,0);
+  const withT = runs.filter(r=>targetFor(r.productId)>0);
+  const avgTarget = withT.length ? withT.reduce((a,r)=>a+targetFor(r.productId),0)/withT.length : null;
+  const variance = avgTarget!=null ? overallPLH-avgTarget : null;
+  const pct = variance!=null && avgTarget ? (variance/avgTarget)*100 : null;
+
+  const byProduct={}; runs.forEach(r=>{ (byProduct[r.productId]=byProduct[r.productId]||[]).push(r); });
+  const productAgg = Object.entries(byProduct).map(([pid,rs])=>{
+    const lbs=rs.reduce((a,r)=>a+(Number(r.weightLbs)||0),0), hrs=rs.reduce((a,r)=>a+activeLabourHours(r),0);
+    const p=state.products.find(x=>x.productId===pid);
+    return {name:p?p.productName:pid, plh: hrs>0?lbs/hrs:0};
+  }).sort((a,b)=>b.plh-a.plh);
+  const top3 = productAgg.slice(0,3), bottom3 = productAgg.slice(-3).reverse();
+
+  const dtByCategory={};
+  runs.forEach(r=>(r.downtime||[]).forEach(d=>{ const m=diffMinutes(d.start,d.end); dtByCategory[d.category||'Other']=(dtByCategory[d.category||'Other']||0)+m; }));
+  const dtSorted = Object.entries(dtByCategory).sort((a,b)=>b[1]-a[1]);
+
+  let text = `${label.toUpperCase()} REPORT\\n${new Date().toLocaleDateString()}\\n\\n`;
+  text += `Total production: ${fmt0(totalLbs)} lbs\\nTotal quantity: ${fmt0(totalQty)}\\nTotal labour hours: ${fmt1(totalLabour)}\\nOverall PLH: ${fmt1(overallPLH)}\\n`;
+  if(avgTarget!=null) text += `Target PLH: ${fmt1(avgTarget)}\\nVariance: ${variance>=0?'+':''}${fmt1(variance)} PLH (${pct>=0?'+':''}${fmt1(pct)}%)\\n`;
+  text += `Total downtime: ${fmtHM(totalDT)}\\nProduction runs: ${runs.length}\\n\\n`;
+  if(top3.length){ text += `TOP PERFORMING PRODUCTS\\n`; top3.forEach((p,i)=>text+=`${i+1}. ${p.name} — ${fmt1(p.plh)} PLH\\n`); text+='\\n'; }
+  if(bottom3.length){ text += `LOWEST PERFORMING PRODUCTS\\n`; bottom3.forEach((p,i)=>text+=`${i+1}. ${p.name} — ${fmt1(p.plh)} PLH\\n`); text+='\\n'; }
+  if(dtSorted.length){ text += `MAIN DOWNTIME REASONS\\n`; dtSorted.slice(0,5).forEach(([cat,m])=>text+=`${cat}: ${fmtHM(m)}\\n`); text+='\\n'; }
+  text += `SUMMARY\\nProduction totaled ${fmt0(totalLbs)} lbs using ${fmt1(totalLabour)} labour hours, resulting in an overall PLH of ${fmt1(overallPLH)}.`;
+  if(avgTarget!=null) text += ` Performance was ${pct>=0?fmt1(pct)+'% above':fmt1(Math.abs(pct))+'% below'} the target of ${fmt1(avgTarget)} PLH.`;
+  if(dtSorted.length) text += ` The primary downtime cause was ${dtSorted[0][0].toLowerCase()}, accounting for ${fmtHM(dtSorted[0][1])}.`;
+  return text;
+}
+function renderReportModal(){
+  const runs = runsInRange(state._reportRange);
+  const label = state._reportRange==='today'?'Daily':state._reportRange==='thisWeek'?'Weekly':'Monthly';
+  const text = buildReportText(runs,label);
+  state.modal = { type:'report', text, label };
+  render();
+}
+window.renderReportModal=renderReportModal;
+function showDowntimeReport(){
+  const runs = runsInRange(state._reportRange||'today');
+  const dtByCategory={};
+  runs.forEach(r=>(r.downtime||[]).forEach(d=>{ const m=diffMinutes(d.start,d.end); dtByCategory[d.category||'Other']=(dtByCategory[d.category||'Other']||0)+m; }));
+  const sorted = Object.entries(dtByCategory).sort((a,b)=>b[1]-a[1]);
+  let text = 'DOWNTIME REPORT\\n\\n';
+  text += sorted.length ? sorted.map(([c,m])=>`${c}: ${fmtHM(m)}`).join('\\n') : 'No downtime recorded for this period.';
+  state.modal = {type:'report', text, label:'Downtime'};
+  render();
+}
+window.showDowntimeReport=showDowntimeReport;
+function exportReportPDF(){
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const lines = doc.splitTextToSize(state.modal.text, 180);
+    doc.setFont('Courier'); doc.setFontSize(10);
+    doc.text(lines, 12, 16);
+    doc.save((state.modal.label||'report').toLowerCase()+'_report_'+new Date().toISOString().slice(0,10)+'.pdf');
+  }catch(e){ alert('PDF export failed: '+e.message); }
+}
+window.exportReportPDF=exportReportPDF;
+function copyReportText(){
+  navigator.clipboard?.writeText(state.modal.text).then(()=>toast('Report copied')).catch(()=>alert('Could not copy — select and copy manually.'));
+}
+window.copyReportText=copyReportText;
+
+/* ============ SETTINGS ============ */
+function settingsView(){
+  const s = state.settings;
+  return `
+  <div class="card" style="margin-bottom:12px;">
+    <div class="field"><label>Company / department name</label><input value="${s.companyName||''}" onchange="updSetting('companyName',this.value)"></div>
+    <div class="grid2">
+      <div class="field"><label>Default shift length (hrs)</label><input type="number" value="${s.shiftLength}" onchange="updSetting('shiftLength',Number(this.value))"></div>
+      <div class="field"><label>Default break (min)</label><input type="number" value="${s.defaultBreak}" onchange="updSetting('defaultBreak',Number(this.value))"></div>
+    </div>
+  </div>
+
+  <h2 class="sec">PLH calculation method</h2>
+  <div class="card">
+    <div class="tabs">
+      <div class="chip ${s.plhMethod==='gross'?'active':''}" onclick="updSetting('plhMethod','gross')">Gross Labour Hours</div>
+      <div class="chip ${s.plhMethod==='net'?'active':''}" onclick="updSetting('plhMethod','net')">Net Production Hours</div>
+    </div>
+    <div style="color:var(--muted);font-size:12.5px;margin-top:6px;">Controls the primary PLH shown on Dashboard, Log and Performance. Both Gross and Net are always calculated and stored.</div>
+  </div>
+
+  <h2 class="sec">Target thresholds</h2>
+  <div class="card grid2">
+    <div class="field"><label>Watch below target (%)</label><input type="number" value="${s.watchPct}" onchange="updSetting('watchPct',Number(this.value))"></div>
+    <div class="field"><label>Needs attention below (%)</label><input type="number" value="${s.attentionPct}" onchange="updSetting('attentionPct',Number(this.value))"></div>
+  </div>
+
+  <h2 class="sec">Machines / stations</h2>
+  <div class="card">
+    ${state.machines.map(m=>`<div class="row-between" style="padding:8px 0;border-bottom:1px solid var(--line);">
+      <span style="${m.active===false?'color:var(--muted);text-decoration:line-through;':''}">${m.name}</span>
+      <span style="font-size:12px;color:var(--red);cursor:pointer;" onclick="removeMachine('${m.id}')">Remove</span></div>`).join('')}
+    <div style="display:flex;gap:8px;margin-top:10px;"><input id="newMachineInput" placeholder="New machine name"><button class="btn btn-ghost" onclick="addMachine()">Add</button></div>
+  </div>
+
+  <h2 class="sec">Downtime categories</h2>
+  <div class="card">
+    <div class="tabs">${s.downtimeCategories.map((c,i)=>`<div class="chip">${c} <span style="margin-left:4px;color:var(--red);cursor:pointer;" onclick="removeDTCategory(${i})">×</span></div>`).join('')}</div>
+    <div style="display:flex;gap:8px;margin-top:10px;"><input id="newDTInput" placeholder="New category"><button class="btn btn-ghost" onclick="addDTCategory()">Add</button></div>
+  </div>
+
+  <h2 class="sec">Product categories</h2>
+  <div class="card">
+    <div class="tabs">${s.productCategories.map((c,i)=>`<div class="chip">${c} <span style="margin-left:4px;color:var(--red);cursor:pointer;" onclick="removePCategory(${i})">×</span></div>`).join('')}</div>
+    <div style="display:flex;gap:8px;margin-top:10px;"><input id="newPCInput" placeholder="New category"><button class="btn btn-ghost" onclick="addPCategory()">Add</button></div>
+  </div>
+
+  <h2 class="sec">Data management</h2>
+  <div class="card">
+    <button class="btn btn-ghost btn-block" style="margin-bottom:10px;" onclick="backupData()">Backup data (export JSON)</button>
+    <input type="file" id="restoreInput" accept="application/json" style="display:none;" onchange="restoreData(this.files[0])">
+    <button class="btn btn-ghost btn-block" style="margin-bottom:10px;" onclick="document.getElementById('restoreInput').click()">Restore data (import JSON)</button>
+    <button class="btn btn-danger btn-block" onclick="resetData()">Reset all data</button>
+  </div>
+  <div style="height:10px;"></div>
+  `;
+}
+function updSetting(key,val){ state.settings[key]=val; saveSettings(); render(); }
+window.updSetting=updSetting;
+function addMachine(){ const v=document.getElementById('newMachineInput').value.trim(); if(!v) return; state.machines.push({id:uid(),name:v,active:true}); saveMachines(); render(); }
+window.addMachine=addMachine;
+function removeMachine(id){ if(!confirm('Remove this machine?')) return; state.machines=state.machines.filter(m=>m.id!==id); saveMachines(); render(); }
+window.removeMachine=removeMachine;
+function addDTCategory(){ const v=document.getElementById('newDTInput').value.trim(); if(!v) return; state.settings.downtimeCategories.push(v); saveSettings(); render(); }
+window.addDTCategory=addDTCategory;
+function removeDTCategory(i){ state.settings.downtimeCategories.splice(i,1); saveSettings(); render(); }
+window.removeDTCategory=removeDTCategory;
+function addPCategory(){ const v=document.getElementById('newPCInput').value.trim(); if(!v) return; state.settings.productCategories.push(v); saveSettings(); render(); }
+window.addPCategory=addPCategory;
+function removePCategory(i){ state.settings.productCategories.splice(i,1); saveSettings(); render(); }
+window.removePCategory=removePCategory;
+
+function backupData(){
+  const payload = { products:state.products, runs:state.runs, machines:state.machines, settings:state.settings, exportedAt:new Date().toISOString() };
+  downloadFile('plh_tracker_backup_'+new Date().toISOString().slice(0,10)+'.json', JSON.stringify(payload,null,2), 'application/json');
+}
+window.backupData=backupData;
+function restoreData(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = async (e)=>{
+    try{
+      const data = JSON.parse(e.target.result);
+      if(!confirm('Restore will replace current data with the backup file. Continue?')) return;
+      state.products = data.products||[]; state.runs = data.runs||[]; state.machines = data.machines||state.machines; state.settings = {...state.settings,...(data.settings||{})};
+      await Promise.all([saveProducts(),saveRuns(),saveMachines(),saveSettings()]);
+      render(); toast('Data restored');
+    }catch(err){ alert('Could not read backup file: '+err.message); }
+  };
+  reader.readAsText(file);
+}
+window.restoreData=restoreData;
+function resetData(){
+  if(!confirm('This will permanently delete ALL products and production runs. Continue?')) return;
+  if(!confirm('Are you absolutely sure? This cannot be undone.')) return;
+  state.products=[]; state.runs=[]; state.settings=defaultSettings();
+  Promise.all([saveProducts(),saveRuns(),saveSettings()]).then(()=>{ render(); toast('All data reset'); });
+}
+window.resetData=resetData;
+
+/* ============ MODALS ============ */
+function modalHtml(){
+  if(!state.modal) return '';
+  if(state.modal.type==='downtime') return downtimeModal();
+  if(state.modal.type==='product') return productModal();
+  if(state.modal.type==='report') return reportModal();
+  return '';
+}
+function downtimeModal(){
+  const d = state.modal.draft;
+  return `<div class="modal-bg" onclick="if(event.target===this) closeModal()"><div class="modal">
+    <h2 class="sec" style="margin-top:0;">Add downtime</h2>
+    <div class="grid2">
+      <div class="field"><label>Start</label><input type="time" value="${d.start}" onchange="state.modal.draft.start=this.value"></div>
+      <div class="field"><label>End</label><input type="time" value="${d.end}" onchange="state.modal.draft.end=this.value"></div>
+    </div>
+    <div class="field"><label>Reason</label><select onchange="state.modal.draft.category=this.value; render()">${state.settings.downtimeCategories.map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    ${d.category==='Other' ? `<div class="field"><label>Custom note</label><input value="${d.notes||''}" onchange="state.modal.draft.notes=this.value"></div>` : `<div class="field"><label>Notes (optional)</label><input value="${d.notes||''}" onchange="state.modal.draft.notes=this.value"></div>`}
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary btn-block" onclick="confirmDowntime()">Add</button>
+    </div>
+  </div></div>`;
+}
+function confirmDowntime(){
+  const d = state.modal.draft;
+  if(!d.start || !d.end){ alert('Start and end time are required.'); return; }
+  if(diffMinutes(d.start,d.end)<=0){ alert('End time must be after start time.'); return; }
+  if(!state.quickDraft.downtime) state.quickDraft.downtime=[];
+  state.quickDraft.downtime.push({id:uid(),...d});
+  state.modal=null; render();
+}
+window.confirmDowntime=confirmDowntime;
+function closeModal(){ state.modal=null; render(); }
+window.closeModal=closeModal;
+
+function productModal(){
+  const d = state.modal.draft;
+  return `<div class="modal-bg" onclick="if(event.target===this) closeModal()"><div class="modal">
+    <h2 class="sec" style="margin-top:0;">${d.id?'Edit':'Add'} product</h2>
+    <div class="field"><label>Product ID</label><input value="${d.productId}" onchange="state.modal.draft.productId=this.value" ${d.id?'':''}></div>
+    <div class="field"><label>Product name</label><input value="${d.productName}" onchange="state.modal.draft.productName=this.value"></div>
+    <div class="field"><label>Description</label><input value="${d.description||''}" onchange="state.modal.draft.description=this.value"></div>
+    <div class="field"><label>Category</label><select onchange="state.modal.draft.category=this.value">${state.settings.productCategories.map(c=>`<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="grid2">
+      <div class="field"><label>Target PLH</label><input type="number" value="${d.targetPLH}" onchange="state.modal.draft.targetPLH=Number(this.value)"></div>
+      <div class="field"><label>Unit</label><input value="${d.unit||'lb'}" onchange="state.modal.draft.unit=this.value"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:6px;">
+      <button class="btn btn-ghost btn-block" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary btn-block" onclick="saveProductModal()">Save</button>
+    </div>
+  </div></div>`;
+}
+function reportModal(){
+  return `<div class="modal-bg" onclick="if(event.target===this) closeModal()"><div class="modal">
+    <h2 class="sec" style="margin-top:0;">${state.modal.label} report</h2>
+    <div class="card" style="white-space:pre-wrap;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.6;max-height:50vh;overflow-y:auto;">${state.modal.text}</div>
+    <div class="grid2" style="margin-top:12px;">
+      <button class="btn btn-ghost" onclick="copyReportText()">Copy text</button>
+      <button class="btn btn-ghost" onclick="window.print()">Print</button>
+    </div>
+    <button class="btn btn-primary btn-block" style="margin-top:10px;" onclick="exportReportPDF()">Export as PDF</button>
+    <button class="btn btn-ghost btn-block" style="margin-top:10px;" onclick="closeModal()">Close</button>
+  </div></div>`;
+}
+
+/* ============ BOOT ============ */
+function bindGlobal(){
+  if(state.view==='dashboard') setTimeout(drawTrendChart,30);
+  if(state.view==='performance' && state.perfTab==='product') setTimeout(drawProductTrend,30);
+}
+(async function boot(){
+  await loadAll();
+  state.ready = true;
+  render();
+})();
+</script>
+</body>
+</html>
