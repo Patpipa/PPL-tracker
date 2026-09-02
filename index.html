@@ -102,13 +102,25 @@ function defaultSettings(){
     seeded:false };
 }
 
+const HAS_CLAUDE_STORAGE = (typeof window.storage !== 'undefined');
 async function storeGet(key){
-  try{ const r = await window.storage.get(key,false); return r?r.value:null; }
+  if(HAS_CLAUDE_STORAGE){
+    try{ const r = await window.storage.get(key,false); return r?r.value:null; }
+    catch(e){ /* not found or unavailable — fall through to localStorage */ }
+  }
+  try{ return localStorage.getItem(key); }
   catch(e){ return null; }
 }
 async function storeSet(key,val){
-  try{ await window.storage.set(key,val,false); state.storageOk=true; return true; }
-  catch(e){ state.storageOk=false; console.error('storage fail',e); return false; }
+  let ok = false;
+  if(HAS_CLAUDE_STORAGE){
+    try{ await window.storage.set(key,val,false); ok = true; } catch(e){ /* fall through */ }
+  }
+  try{ localStorage.setItem(key,val); ok = true; }
+  catch(e){ /* localStorage blocked (private mode / full) */ }
+  state.storageOk = ok;
+  if(!ok) console.error('storage fail: could not persist', key);
+  return ok;
 }
 async function loadAll(){
   const [p,r,m,s] = await Promise.all([storeGet(K.products),storeGet(K.runs),storeGet(K.machines),storeGet(K.settings)]);
@@ -138,9 +150,27 @@ async function saveSettings(){ return storeSet(K.settings, JSON.stringify(state.
 
 function uid(){ return 'id'+Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
 
+/* ============ TIMEZONE (BC / America-Vancouver) ============ */
+// All "today" / date-only logic is anchored to Pacific time so entries
+// made in the evening don't roll over to tomorrow's date.
+function vanToday(){
+  return new Date().toLocaleDateString('en-CA',{timeZone:'America/Vancouver'});
+}
+function vanNowClock(){
+  return new Date().toLocaleString('en-US',{timeZone:'America/Vancouver'});
+}
+function addDaysToDateStr(dateStr, days){
+  const [y,m,d] = dateStr.split('-').map(Number);
+  const dt = new Date(Date.UTC(y,m-1,d));
+  dt.setUTCDate(dt.getUTCDate()+days);
+  return dt.toISOString().slice(0,10);
+}
+function dowOfDateStr(dateStr){
+  return new Date(dateStr+'T00:00:00Z').getUTCDay();
+}
+
 /* ============ SAMPLE DATA ============ */
 function seedSampleData(){
-  const cats = {ribeye:'Steak', grd:'Ground', diced:'Diced', pork:'Pork', bison:'Bison'};
   state.products = [
     {id:uid(),productId:'100001',productName:'Ribeye Steak',category:'Steak',targetPLH:225,unit:'lb',active:true,sample:true},
     {id:uid(),productId:'100002',productName:'Ground Beef 5lb',category:'Ground',targetPLH:300,unit:'lb',active:true,sample:true},
@@ -150,10 +180,9 @@ function seedSampleData(){
   ];
   const m = state.machines.length ? state.machines : [{id:uid(),name:'Machine 1'},{id:uid(),name:'Machine 2'},{id:uid(),name:'Machine 3'}];
   const runs = [];
-  const today = new Date();
+  const todaySeed = vanToday();
   for(let dayOffset=6; dayOffset>=0; dayOffset--){
-    const d = new Date(today); d.setDate(d.getDate()-dayOffset);
-    const dateStr = d.toISOString().slice(0,10);
+    const dateStr = addDaysToDateStr(todaySeed, -dayOffset);
     const numRuns = 2 + Math.floor(Math.random()*2);
     let hour = 7;
     for(let i=0;i<numRuns;i++){
@@ -179,7 +208,7 @@ function seedSampleData(){
         id:uid(), date:dateStr, productId:prod.productId, productName:prod.productName, category:prod.category,
         machine:mach.name, quantity: Math.round(weight/6), weightLbs: weight, employeeCount: emp,
         startTime: pad2(startH)+':'+pad2(startM), endTime: pad2(endH)+':'+pad2(endM), breakMinutes: brk,
-        downtime: dt, notes:'', sample:true, createdAt: d.toISOString(), updatedAt: d.toISOString()
+        downtime: dt, notes:'', sample:true, createdAt: dateStr+'T12:00:00', updatedAt: dateStr+'T12:00:00'
       });
     }
   }
@@ -223,14 +252,14 @@ function fmt1(n){ return (Math.round((n||0)*10)/10).toFixed(1); }
 function fmt0(n){ return Math.round(n||0).toLocaleString(); }
 
 function runsInRange(range, custom){
-  const now = new Date(); const todayStr = now.toISOString().slice(0,10);
-  const d = (offset)=>{ const x=new Date(now); x.setDate(x.getDate()-offset); return x.toISOString().slice(0,10); };
+  const todayStr = vanToday();
+  const d = (offset)=> addDaysToDateStr(todayStr, -offset);
   let from, to = todayStr;
   if(range==='today'){ from=todayStr; }
   else if(range==='yesterday'){ from=d(1); to=d(1); }
   else if(range==='last7'){ from=d(6); }
   else if(range==='last30'){ from=d(29); }
-  else if(range==='thisWeek'){ const dow=(now.getDay()+6)%7; from=d(dow); }
+  else if(range==='thisWeek'){ const dow=(dowOfDateStr(todayStr)+6)%7; from=d(dow); }
   else if(range==='thisMonth'){ from = todayStr.slice(0,8)+'01'; }
   else if(range==='custom' && custom){ from=custom.from; to=custom.to; }
   else { from='0000-01-01'; to='9999-12-31'; }
@@ -355,7 +384,8 @@ function drawTrendChart(){
   const canvas = document.getElementById('trendChart');
   if(!canvas || typeof Chart==='undefined') return;
   const days = [];
-  for(let i=13;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); days.push(d.toISOString().slice(0,10)); }
+  const t0 = vanToday();
+  for(let i=13;i>=0;i--){ days.push(addDaysToDateStr(t0,-i)); }
   const data = days.map(day=>{
     const rs = state.runs.filter(r=>r.date===day);
     const lbs = rs.reduce((a,r)=>a+(Number(r.weightLbs)||0),0);
@@ -372,7 +402,7 @@ function drawTrendChart(){
 
 /* ============ QUICK ENTRY ============ */
 function blankRun(){
-  return { id:null, date:new Date().toISOString().slice(0,10), productId:'', productName:'', category:'',
+  return { id:null, date:vanToday(), productId:'', productName:'', category:'',
     machine: state._lastMachine || (state.machines[0]?state.machines[0].name:''), quantity:'', weightLbs:'', employeeCount: state._lastEmp||3,
     startTime:'', endTime:'', breakMinutes: state.settings.defaultBreak||30, downtime:[], notes:'' };
 }
@@ -382,8 +412,6 @@ function entryView(){
   const recentProducts = [...new Set(state.runs.slice().reverse().map(r=>r.productId))].slice(0,5)
     .map(pid=>state.products.find(p=>p.productId===pid)).filter(Boolean);
   const c = calcRun(d);
-  const target = targetFor(d.productId);
-  const empOptions = [1,2,3,4,5,6,7];
 
   return `
   ${state.editingRun ? `<div class="warn-box no-print">Editing run from ${d.date}. <span style="text-decoration:underline;cursor:pointer;" onclick="cancelEdit()">Cancel edit</span></div>` : ''}
@@ -392,11 +420,12 @@ function entryView(){
   <div class="card">
     <div class="field"><label>Date</label><input type="date" value="${d.date}" onchange="updDraft('date',this.value)"></div>
 
-    <div class="field"><label>Product ID</label>
-      <input list="prodlist" value="${d.productId}" placeholder="Type or select…" oninput="onProductIdInput(this.value)">
-      <datalist id="prodlist">${state.products.filter(p=>p.active!==false).map(p=>`<option value="${p.productId}">${p.productName}</option>`).join('')}</datalist>
+    <div class="field"><label>Product</label>
+      <button type="button" class="btn btn-block" style="text-align:left;background:var(--panel2);font-weight:600;" onclick="openProductPicker()">
+        ${d.productId ? esc(d.productName||d.productId)+' <span style="color:var(--muted);font-weight:400;">('+esc(d.productId)+')</span>' : '📋 Tap to select product…'}
+      </button>
     </div>
-    ${d.productName ? `<div style="margin:-6px 0 14px;color:var(--muted);font-size:13px;">${d.productName}${d.category?' · '+d.category:''}${target?' · Target '+fmt1(target)+' PLH':' · No target set'}</div>` : ''}
+    <div id="prodInfoLine" style="margin:-6px 0 14px;">${productInfoLineInner(d)}</div>
 
     <div class="field"><label>Machine / Station</label>
       <select onchange="updDraft('machine',this.value)">
@@ -410,10 +439,7 @@ function entryView(){
     </div>
 
     <div class="field"><label>Number of employees</label>
-      <div class="emp-grid">
-        ${empOptions.map(n=>`<div class="emp-btn ${Number(d.employeeCount)===n?'active':''}" onclick="updDraft('employeeCount',${n})">${n}</div>`).join('')}
-        <div class="emp-btn ${Number(d.employeeCount)>=8?'active':''}" onclick="promptCustomEmp()">8+</div>
-      </div>
+      <div class="emp-grid" id="empGrid">${empGridInner(d)}</div>
     </div>
 
     <div class="grid2">
@@ -422,7 +448,7 @@ function entryView(){
     </div>
 
     <div class="field"><label>Break time (minutes)</label>
-      <div class="tabs">${[0,15,30,45,60].map(m=>`<div class="chip ${Number(d.breakMinutes)===m?'active':''}" onclick="updDraft('breakMinutes',${m})">${m} min</div>`).join('')}</div>
+      <div class="tabs" id="breakChips">${breakChipsInner(d)}</div>
     </div>
   </div>
 
@@ -440,13 +466,8 @@ function entryView(){
   <div class="card"><textarea rows="2" placeholder="Optional notes…" onchange="updDraft('notes',this.value)">${d.notes||''}</textarea></div>
 
   <h2 class="sec">Preview</h2>
-  <div class="card grid2">
-    <div><div style="color:var(--muted);font-size:11.5px;">GROSS PLH</div><div class="num" style="font-size:22px;font-weight:700;color:var(--blue);">${fmt1(c.grossPLH)}</div></div>
-    <div><div style="color:var(--muted);font-size:11.5px;">NET PLH</div><div class="num" style="font-size:22px;font-weight:700;">${fmt1(c.netPLH)}</div></div>
-    <div><div style="color:var(--muted);font-size:11.5px;">LABOUR HOURS (GROSS)</div><div class="num">${fmt1(c.grossLabourHours)}</div></div>
-    <div><div style="color:var(--muted);font-size:11.5px;">DOWNTIME</div><div class="num">${fmtHM(c.downtimeMin)}</div></div>
-  </div>
-  ${entryWarnings(d,c).map(w=>`<div class="warn-box">${w}</div>`).join('')}
+  <div class="card grid2" id="previewCard">${previewCardInner(c)}</div>
+  <div id="entryWarnings">${entryWarnings(d,c).map(w=>`<div class="warn-box">${w}</div>`).join('')}</div>
 
   <div style="display:flex;gap:10px;margin-top:16px;">
     ${!state.editingRun ? `<button class="btn btn-ghost" onclick="duplicatePrevious()" style="flex:1;">Duplicate previous</button>` : ''}
@@ -456,6 +477,40 @@ function entryView(){
     <button class="btn btn-primary btn-block" onclick="saveDraft(false)">Save & Finish</button>
   </div>
   `;
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function productInfoLineInner(d){
+  const target = targetFor(d.productId);
+  return d.productName ? `<div style="color:var(--muted);font-size:13px;">${esc(d.productName)}${d.category?' · '+esc(d.category):''}${target?' · Target '+fmt1(target)+' PLH':' · No target set'}</div>` : '';
+}
+function empGridInner(d){
+  const empOptions = [1,2,3,4,5,6,7];
+  return empOptions.map(n=>`<div class="emp-btn ${Number(d.employeeCount)===n?'active':''}" onclick="updDraft('employeeCount',${n})">${n}</div>`).join('')
+    + `<div class="emp-btn ${Number(d.employeeCount)>=8?'active':''}" onclick="promptCustomEmp()">8+</div>`;
+}
+function breakChipsInner(d){
+  return [0,15,30,45,60].map(m=>`<div class="chip ${Number(d.breakMinutes)===m?'active':''}" onclick="updDraft('breakMinutes',${m})">${m} min</div>`).join('');
+}
+function previewCardInner(c){
+  return `
+    <div><div style="color:var(--muted);font-size:11.5px;">GROSS PLH</div><div class="num" style="font-size:22px;font-weight:700;color:var(--blue);">${fmt1(c.grossPLH)}</div></div>
+    <div><div style="color:var(--muted);font-size:11.5px;">NET PLH</div><div class="num" style="font-size:22px;font-weight:700;">${fmt1(c.netPLH)}</div></div>
+    <div><div style="color:var(--muted);font-size:11.5px;">LABOUR HOURS (GROSS)</div><div class="num">${fmt1(c.grossLabourHours)}</div></div>
+    <div><div style="color:var(--muted);font-size:11.5px;">DOWNTIME</div><div class="num">${fmtHM(c.downtimeMin)}</div></div>
+  `;
+}
+// Updates only the live-changing parts of the entry form (preview, warnings,
+// employee/break button states) instead of re-rendering the whole page.
+// A full re-render mid-keystroke was closing native iOS time/number pickers
+// and shifting the layout, which could land a stray tap on the bottom nav.
+function refreshEntryLive(){
+  if(state.view!=='entry' || !state.quickDraft) { render(); return; }
+  const d = state.quickDraft;
+  const c = calcRun(d);
+  const pc = document.getElementById('previewCard'); if(pc) pc.innerHTML = previewCardInner(c);
+  const wb = document.getElementById('entryWarnings'); if(wb) wb.innerHTML = entryWarnings(d,c).map(w=>`<div class="warn-box">${w}</div>`).join('');
+  const eg = document.getElementById('empGrid'); if(eg) eg.innerHTML = empGridInner(d);
+  const bc = document.getElementById('breakChips'); if(bc) bc.innerHTML = breakChipsInner(d);
 }
 function entryWarnings(d,c){
   const w=[];
@@ -472,19 +527,45 @@ function entryWarnings(d,c){
   }
   return w;
 }
-function updDraft(key,val){ state.quickDraft[key]=val; if(key==='machine') state._lastMachine=val; if(key==='employeeCount') state._lastEmp=val; render(); }
+function updDraft(key,val){ state.quickDraft[key]=val; if(key==='machine') state._lastMachine=val; if(key==='employeeCount') state._lastEmp=val; refreshEntryLive(); }
 window.updDraft=updDraft;
-function onProductIdInput(val){
-  state.quickDraft.productId = val;
-  const p = state.products.find(x=>x.productId===val);
+function setProductOnDraft(pid){
+  state.quickDraft.productId = pid;
+  const p = state.products.find(x=>x.productId===pid);
   if(p){ state.quickDraft.productName=p.productName; state.quickDraft.category=p.category; }
-  render();
+  else { state.quickDraft.productName=''; state.quickDraft.category=''; }
 }
-window.onProductIdInput=onProductIdInput;
-function pickProduct(pid){ onProductIdInput(pid); }
+function pickProduct(pid){ setProductOnDraft(pid); render(); }
 window.pickProduct=pickProduct;
 function promptCustomEmp(){ const v=prompt('Number of employees:', state.quickDraft.employeeCount||8); if(v && !isNaN(v)) updDraft('employeeCount',Number(v)); }
 window.promptCustomEmp=promptCustomEmp;
+
+/* Product picker — a tappable list instead of a text datalist, since iOS
+   Safari does not support <datalist> autocomplete at all. */
+function openProductPicker(){ state.modal = {type:'productPicker', search:''}; render(); }
+window.openProductPicker=openProductPicker;
+function productPickerListInner(search){
+  const s=(search||'').toLowerCase();
+  const list = state.products.filter(p=>p.active!==false && (!s || p.productId.toLowerCase().includes(s) || (p.productName||'').toLowerCase().includes(s)));
+  if(!list.length) return '<div class="empty" style="padding:20px;">No matching products.</div>';
+  return list.map(p=>`<div class="dt-item" style="cursor:pointer;" onclick="selectProductFromPicker('${p.productId}')">
+      <div style="font-weight:700;">${esc(p.productName)}</div>
+      <div style="color:var(--muted);font-size:12px;margin-top:2px;">ID ${esc(p.productId)}${p.category?' · '+esc(p.category):''}${p.targetPLH?' · Target '+fmt1(p.targetPLH)+' PLH':''}</div>
+    </div>`).join('');
+}
+function filterProductPicker(v){
+  state.modal.search=v;
+  const el=document.getElementById('productPickerList'); if(el) el.innerHTML=productPickerListInner(v);
+}
+window.filterProductPicker=filterProductPicker;
+function selectProductFromPicker(pid){ setProductOnDraft(pid); state.modal=null; render(); }
+window.selectProductFromPicker=selectProductFromPicker;
+function openManualProductEntry(){
+  const pid = prompt('Enter Product ID manually (use this for a product not yet in your Product Master):');
+  if(pid){ setProductOnDraft(pid.trim()); }
+  state.modal=null; render();
+}
+window.openManualProductEntry=openManualProductEntry;
 function addDowntime(){
   state.modal = { type:'downtime', draft:{start:'',end:'',category:state.settings.downtimeCategories[0],notes:''} };
   render();
@@ -601,7 +682,7 @@ function exportCSV(runs){
       c.downtimeMin,fmt1(c.grossLabourHours),fmt1(c.netLabourHours),fmt1(c.grossPLH),fmt1(c.netPLH),t||'',st.pct==null?'':fmt1(st.pct),csvSafe(r.notes||'')];
     lines.push(row.join(','));
   });
-  downloadFile('plh_production_log_'+new Date().toISOString().slice(0,10)+'.csv', lines.join('\\n'), 'text/csv');
+  downloadFile('plh_production_log_'+vanToday()+'.csv', lines.join('\\n'), 'text/csv');
 }
 window.exportCSV=exportCSV;
 function csvSafe(s){ s=String(s||''); return /[,"\\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; }
@@ -835,7 +916,7 @@ function buildReportText(runs, label){
   runs.forEach(r=>(r.downtime||[]).forEach(d=>{ const m=diffMinutes(d.start,d.end); dtByCategory[d.category||'Other']=(dtByCategory[d.category||'Other']||0)+m; }));
   const dtSorted = Object.entries(dtByCategory).sort((a,b)=>b[1]-a[1]);
 
-  let text = `${label.toUpperCase()} REPORT\\n${new Date().toLocaleDateString()}\\n\\n`;
+  let text = `${label.toUpperCase()} REPORT\\n${vanNowClock()} (Pacific time)\\n\\n`;
   text += `Total production: ${fmt0(totalLbs)} lbs\\nTotal quantity: ${fmt0(totalQty)}\\nTotal labour hours: ${fmt1(totalLabour)}\\nOverall PLH: ${fmt1(overallPLH)}\\n`;
   if(avgTarget!=null) text += `Target PLH: ${fmt1(avgTarget)}\\nVariance: ${variance>=0?'+':''}${fmt1(variance)} PLH (${pct>=0?'+':''}${fmt1(pct)}%)\\n`;
   text += `Total downtime: ${fmtHM(totalDT)}\\nProduction runs: ${runs.length}\\n\\n`;
@@ -873,7 +954,7 @@ function exportReportPDF(){
     const lines = doc.splitTextToSize(state.modal.text, 180);
     doc.setFont('Courier'); doc.setFontSize(10);
     doc.text(lines, 12, 16);
-    doc.save((state.modal.label||'report').toLowerCase()+'_report_'+new Date().toISOString().slice(0,10)+'.pdf');
+    doc.save((state.modal.label||'report').toLowerCase()+'_report_'+vanToday()+'.pdf');
   }catch(e){ alert('PDF export failed: '+e.message); }
 }
 window.exportReportPDF=exportReportPDF;
@@ -956,7 +1037,7 @@ window.removePCategory=removePCategory;
 
 function backupData(){
   const payload = { products:state.products, runs:state.runs, machines:state.machines, settings:state.settings, exportedAt:new Date().toISOString() };
-  downloadFile('plh_tracker_backup_'+new Date().toISOString().slice(0,10)+'.json', JSON.stringify(payload,null,2), 'application/json');
+  downloadFile('plh_tracker_backup_'+vanToday()+'.json', JSON.stringify(payload,null,2), 'application/json');
 }
 window.backupData=backupData;
 function restoreData(file){
@@ -988,7 +1069,19 @@ function modalHtml(){
   if(state.modal.type==='downtime') return downtimeModal();
   if(state.modal.type==='product') return productModal();
   if(state.modal.type==='report') return reportModal();
+  if(state.modal.type==='productPicker') return productPickerModal();
   return '';
+}
+function productPickerModal(){
+  return `<div class="modal-bg" onclick="if(event.target===this) closeModal()"><div class="modal">
+    <h2 class="sec" style="margin-top:0;">Select product</h2>
+    <input id="productPickerSearch" placeholder="Search product ID or name…" oninput="filterProductPicker(this.value)" autofocus>
+    <div style="height:10px;"></div>
+    <div id="productPickerList" style="max-height:44vh;overflow-y:auto;">${productPickerListInner('')}</div>
+    <div style="height:12px;"></div>
+    <button class="btn btn-ghost btn-block" onclick="openManualProductEntry()">Can't find it? Enter Product ID manually</button>
+    <button class="btn btn-ghost btn-block" style="margin-top:10px;" onclick="closeModal()">Cancel</button>
+  </div></div>`;
 }
 function downtimeModal(){
   const d = state.modal.draft;
